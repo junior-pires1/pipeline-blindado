@@ -1,0 +1,11 @@
+node_modules
+coverage
+relatorios
+.git
+.githooks
+ataques
+helm
+k8s
+test
+*.md
+Jenkinsfile

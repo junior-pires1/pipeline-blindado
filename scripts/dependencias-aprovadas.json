@@ -1,0 +1,10 @@
+[
+  "express",
+  "supertest",
+  "eslint",
+  "@eslint/js",
+  "globals",
+  "secretlint",
+  "@secretlint/secretlint-rule-preset-recommend",
+  "@cyclonedx/cyclonedx-npm"
+]

@@ -1,0 +1,10 @@
+#!/bin/sh
+# Hook local: barra o commit se houver segredo nos arquivos preparados (shift-left)
+ARQUIVOS=$(git diff --cached --name-only --diff-filter=ACM)
+[ -z "$ARQUIVOS" ] && exit 0
+echo ">> pre-commit: procurando segredos com secretlint..."
+npx --no-install secretlint $ARQUIVOS || {
+  echo ""
+  echo "COMMIT BLOQUEADO: segredo detectado. Remova a credencial e use Jenkins Credentials / variáveis de ambiente."
+  exit 1
+}

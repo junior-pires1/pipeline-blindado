@@ -1,0 +1,6 @@
+apiVersion: v2
+name: tarefas-api
+description: Chart único da tarefas-api - a diferença entre ambientes fica só nos arquivos values
+type: application
+version: 0.1.0        # versão do CHART
+appVersion: "1.0.0"   # versão da APLICAÇÃO (sobrescrita pelo pipeline)

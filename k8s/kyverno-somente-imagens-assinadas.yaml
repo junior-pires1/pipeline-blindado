@@ -1,0 +1,30 @@
+# Política de admissão: o cluster só aceita imagens assinadas pela chave do pipeline.
+# Ataque 3: uma imagem construída fora do Jenkins (sem assinatura) é RECUSADA.
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: somente-imagens-assinadas
+spec:
+  validationFailureAction: Enforce
+  webhookTimeoutSeconds: 30
+  background: false
+  rules:
+    - name: verificar-assinatura-cosign
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces: ["tarefas-*"]
+      verifyImages:
+        - imageReferences:
+            - "ghcr.io/SEU-USUARIO-GITHUB/tarefas-api*"
+          mutateDigest: true
+          verifyDigest: true
+          required: true
+          attestors:
+            - entries:
+                - keys:
+                    publicKeys: |-
+                      -----BEGIN PUBLIC KEY-----
+                      COLE AQUI O CONTEÚDO DE cosign.pub
+                      -----END PUBLIC KEY-----

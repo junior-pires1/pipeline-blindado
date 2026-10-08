@@ -1,0 +1,17 @@
+replicaCount: 1
+appVersion: "1.0.0"
+
+image:
+  repository: ghcr.io/SEU-USUARIO-GITHUB/tarefas-api
+  digest: ""            # preenchido pelo pipeline: sha256:...
+  pullPolicy: IfNotPresent
+
+service:
+  port: 80
+  targetPort: 3000
+
+resources:
+  requests: { cpu: 50m, memory: 64Mi }
+  limits:   { cpu: 250m, memory: 128Mi }
+
+logLevel: info

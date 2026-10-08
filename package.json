@@ -1,0 +1,30 @@
+{
+  "name": "tarefas-api",
+  "version": "1.0.0",
+  "description": "API de tarefas usada como fonte do Pipeline Blindado (DevSecOps com GitHub e Jenkins)",
+  "main": "src/server.js",
+  "private": true,
+  "scripts": {
+    "start": "node src/server.js",
+    "lint": "eslint .",
+    "test": "node --test --experimental-test-coverage --test-coverage-include=src/** test/*.test.js",
+    "secrets": "secretlint \"**/*\"",
+    "deps:check": "node scripts/verificar-dependencias.js",
+    "audit": "npm audit --audit-level=high",
+    "sbom": "cyclonedx-npm --omit dev --output-file relatorios/sbom.cdx.json"
+  },
+  "engines": { "node": ">=22" },
+  "license": "MIT",
+  "dependencies": {
+    "express": "5.2.1"
+  },
+  "devDependencies": {
+    "@cyclonedx/cyclonedx-npm": "6.0.1",
+    "@eslint/js": "10.0.1",
+    "@secretlint/secretlint-rule-preset-recommend": "13.0.7",
+    "eslint": "10.12.0",
+    "globals": "17.13.0",
+    "secretlint": "13.0.7",
+    "supertest": "7.3.1"
+  }
+}

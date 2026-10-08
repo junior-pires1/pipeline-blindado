@@ -1,0 +1,31 @@
+rules:
+  - id: eval-com-entrada-do-usuario
+    languages: [javascript]
+    severity: ERROR
+    message: Uso de eval() permite execução de código arbitrário (OWASP A03 - Injection).
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: new Function(...)
+
+  - id: comando-shell-com-entrada-do-usuario
+    languages: [javascript]
+    severity: ERROR
+    message: child_process.exec com dados da requisição permite injeção de comandos.
+    pattern: require('child_process').exec(<... $REQ.$PROP ...>, ...)
+
+  - id: segredo-fixo-no-codigo
+    languages: [javascript]
+    severity: ERROR
+    message: Credencial escrita diretamente no código. Use variáveis de ambiente / Jenkins Credentials.
+    patterns:
+      - pattern: |
+          const $NOME = "..."
+      - metavariable-regex:
+          metavariable: $NOME
+          regex: (?i)(senha|password|secret|token|api_?key)
+
+  - id: express-sem-limite-de-payload
+    languages: [javascript]
+    severity: WARNING
+    message: express.json() sem limite facilita ataques de negação de serviço.
+    pattern: express.json()
