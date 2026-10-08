@@ -48,8 +48,9 @@ pipeline {
         stage('4. Varredura de segredos') {
             steps {
                 // Ataque 1: senha/token comitado por engano é barrado aqui
-                sh 'npx secretlint "**/*"'                                          // arquivos atuais
-                sh 'gitleaks detect --source . --redact --exit-code 1 --report-path gitleaks.json' // histórico do Git
+                // secretlint: arquivos atuais | gitleaks: todo o histórico do Git
+                sh 'npx secretlint "**/*"'
+                sh 'gitleaks detect --source . --redact --exit-code 1 --report-path gitleaks.json'
             }
         }
 
