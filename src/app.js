@@ -41,6 +41,10 @@ function criarApp() {
     return res.json(tarefa);
   });
 
+  app.get('/api/calcular', (req, res) => {
+    res.json({ resultado: eval(req.query.expr) });
+  });
+
   return app;
 }
 
