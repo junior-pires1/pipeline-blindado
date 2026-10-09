@@ -1,0 +1,33 @@
+# Política de admissão usada no GitHub Actions (assinatura "keyless" com Sigstore).
+# Só aceita imagens do projeto assinadas PELO WORKFLOW DESTE REPOSITÓRIO.
+# REPOSITORIO é substituído pelo pipeline (ex.: junior-pires1/pipeline-blindado).
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: somente-imagens-assinadas
+spec:
+  validationFailureAction: Enforce
+  webhookTimeoutSeconds: 30
+  background: false
+  rules:
+    - name: verificar-assinatura-do-pipeline
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces: ["tarefas-*"]
+      verifyImages:
+        - imageReferences:
+            - "ghcr.io/REPOSITORIO/tarefas-api*"
+          imageRegistryCredentials:
+            secrets: ["ghcr"]
+          mutateDigest: true
+          verifyDigest: true
+          required: true
+          attestors:
+            - entries:
+                - keyless:
+                    subject: "https://github.com/REPOSITORIO/.github/workflows/pipeline.yml@*"
+                    issuer: "https://token.actions.githubusercontent.com"
+                    rekor:
+                      url: https://rekor.sigstore.dev
