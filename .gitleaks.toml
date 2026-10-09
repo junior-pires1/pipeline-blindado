@@ -5,4 +5,4 @@ useDefault = true
 
 [allowlist]
 description = "Scripts de ataque controlado (credenciais fictícias)"
-paths = ['''^ataques/''']
+paths = ['''(^|/)ataques/''']

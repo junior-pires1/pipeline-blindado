@@ -1,8 +1,0 @@
-# Configuração do Gitleaks: usa todas as regras padrão,
-# exceto na pasta ataques/, que contém chaves FALSAS usadas na demonstração.
-[extend]
-useDefault = true
-
-[allowlist]
-description = "Scripts de ataque controlado (credenciais fictícias)"
-paths = ['''^ataques/''']
