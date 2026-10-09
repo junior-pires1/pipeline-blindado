@@ -6,6 +6,9 @@ image:
   digest: ""            # preenchido pelo pipeline: sha256:...
   pullPolicy: IfNotPresent
 
+# Segredo para baixar a imagem do GHCR (criado pelo pipeline)
+imagePullSecrets: []
+
 service:
   port: 80
   targetPort: 3000
