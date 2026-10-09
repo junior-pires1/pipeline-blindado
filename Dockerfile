@@ -10,6 +10,9 @@ FROM node:22-alpine
 ENV NODE_ENV=production PORT=3000
 WORKDIR /app
 COPY --from=build --chown=node:node /app /app
+# Remove npm/yarn da imagem final: a aplicação não precisa deles em produção
+# (menos superfície de ataque e menos alertas no Trivy)
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx /opt/yarn* /usr/local/bin/yarn /usr/local/bin/yarnpkg
 # Usuário não-root (boa prática - Aula 5/6)
 USER node
 EXPOSE 3000

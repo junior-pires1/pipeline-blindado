@@ -1,113 +1,113 @@
-# Guia de Execução — Pipeline Blindado
+# Guia de Execução — Pipeline Blindado (GitHub Actions)
 
-Passo a passo para rodar o projeto e tirar os prints do relatório.
-Os quadros **📸 PRINT** indicam exatamente o que capturar.
+O pipeline roda no **GitHub Actions**, nos servidores do GitHub. Não é preciso
+Docker nem Jenkins no seu computador. Os quadros **📸 PRINT** indicam o que capturar.
 
-Pré-requisitos: Windows 10/11, Docker Desktop, Git Bash, Node.js 22 e conta no GitHub.
+> O `Jenkinsfile` continua no repositório como implementação alternativa,
+> com os mesmos estágios (veja a seção "Alternativa: Jenkins" no fim).
+
+Pré-requisitos: Git Bash, Node.js 22 e o repositório já enviado ao GitHub.
 
 ---
 
-## 1. Testar localmente (5 min)
+## 1. Testar localmente
 
 ```bash
 npm install
-npm test                      # 7 testes devem passar
-npm start                     # abra http://localhost:3000/health
-bash scripts/pipeline-local.sh
+npm test                        # 7 testes devem passar
+npm start                       # abra http://localhost:3000/health  (Ctrl+C para parar)
+bash scripts/pipeline-local.sh  # precisa do semgrep: pip install semgrep
 ```
-📸 PRINT 1: saída final `PIPELINE LOCAL APROVADO`.
+📸 PRINT: `/health` no navegador e o final `PIPELINE LOCAL APROVADO`.
 
-## 2. Subir para o GitHub com as 5 branches
+## 2. Criar o ambiente de produção com aprovação manual
+
+No GitHub: **Settings → Environments → New environment**
+1. Nome: `producao` → **Configure environment**.
+2. Marque **Required reviewers** e adicione o seu usuário.
+3. **Save protection rules**.
+
+📸 PRINT: tela do environment `producao` com o revisor obrigatório.
+
+## 3. Disparar o pipeline na branch dev
 
 ```bash
-git remote add origin https://github.com/SEU-USUARIO/pipeline-blindado.git
-git push -u origin main
-for b in dev homolog pre-prod sustain; do git push origin $b; done
-git config core.hooksPath .githooks          # ativa o hook anti-segredo
+git checkout dev
+git push origin dev
 ```
-Em **Settings → Branches**, proteja a `main` (exigir pull request e status check do Jenkins).
-📸 PRINT 2: lista de branches no GitHub. 📸 PRINT 3: regra de proteção da `main`.
+Abra a aba **Actions** do repositório. O workflow **Pipeline Blindado** roda 4 jobs:
 
-## 3. Subir o Jenkins com as ferramentas
+| Job | O que faz |
+|---|---|
+| 1. CI e portões de segurança | dependências, segredos (secretlint + Gitleaks), lint, testes, Semgrep, npm audit, SBOM |
+| 2. Imagem, scan, SBOM e assinatura | build Docker, Trivy, Syft, push no GHCR por digest, cosign |
+| 3. Kyverno – só imagem assinada | cluster Kubernetes temporário: aceita a imagem oficial e **bloqueia** uma imagem com backdoor (Ataque 3) |
+| 4. Deploy (dev) | cluster Kubernetes temporário, Helm com o digest, smoke test e rollback |
 
+📸 PRINT: visão geral do workflow com os 4 jobs verdes (o grafo de jobs).
+📸 PRINT: o **Summary** (tabela "Portões de segurança" e "Artefato publicado e assinado").
+📸 PRINT: dentro do job 2, o passo **11b. Verificar a assinatura**.
+📸 PRINT: dentro do job 3, o passo **ATAQUE 3** com o erro do Kyverno.
+📸 PRINT: dentro do job 4, os passos **13. Deploy com Helm** e **14. Smoke test**.
+📸 PRINT: a imagem publicada em **Packages** (perfil ou página do repositório).
+
+## 4. Promover entre ambientes
+
+```bash
+bash scripts/promover.sh homolog
+bash scripts/promover.sh pre-prod
+bash scripts/promover.sh main
+```
+Cada comando faz o merge, envia ao GitHub e dispara o pipeline do ambiente.
+Na `main`, o job **4. Deploy (main)** fica **aguardando aprovação**:
+abra o workflow, clique em **Review deployments**, marque `producao` e **Approve and deploy**.
+
+📸 PRINT: a tela "Review deployments" (aprovação manual).
+📸 PRINT: o deploy em produção concluído (3 réplicas prontas no Summary).
+
+## 5. Os ataques (vão aparecer VERMELHOS no Actions)
+
+```bash
+bash ataques/enviar-ataque.sh typosquatting   # bloqueado no estágio 2
+bash ataques/enviar-ataque.sh eval            # bloqueado no estágio 5c (Semgrep)
+bash ataques/enviar-ataque.sh segredo         # bloqueado no estágio 4 (secretlint/Gitleaks)
+```
+Cada comando cria a branch `ataque/<nome>`, envia ao GitHub e volta para a sua branch.
+
+> Se o GitHub **recusar o push** do ataque "segredo" com a mensagem
+> *"Push cannot contain secrets"*, isso é a proteção de push do próprio GitHub
+> barrando a credencial antes mesmo do pipeline. Tire o print: é mais uma camada de defesa!
+
+📸 PRINT: lista de execuções no Actions com os ataques em vermelho (❌).
+📸 PRINT: para cada ataque, o passo que falhou aberto, mostrando o motivo.
+
+Ataques locais (sem GitHub), para a apresentação:
+```bash
+bash ataques/01-segredo-vazado.sh
+bash ataques/02-typosquatting.sh
+bash ataques/02b-dependencia-vulneravel.sh
+bash ataques/04-codigo-inseguro.sh
+bash ataques/03b-artefato-adulterado-local.sh
+```
+
+Para apagar as branches de ataque depois:
+```bash
+git push origin --delete ataque/typosquatting ataque/eval ataque/segredo
+```
+
+## 6. (Opcional) Exigir o pipeline verde para a main
+
+Depois da primeira execução: **Settings → Branches → editar a regra `main`** →
+marque **Require status checks to pass** → busque `1. CI e portões de segurança` → **Save changes**.
+
+---
+
+## Alternativa: Jenkins
+
+O `Jenkinsfile` implementa os mesmos estágios para quem tem Docker Desktop:
 ```powershell
 docker build -t jenkins-blindado ./jenkins
-docker network create kind
-docker run -d --name jenkins -u root --network kind `
-  -p 8080:8080 -p 50000:50000 `
-  -v jenkins_home:/var/jenkins_home `
-  -v /var/run/docker.sock:/var/run/docker.sock `
-  jenkins-blindado
-docker exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword
+docker run -d --name jenkins-blindado -u root -p 8080:8080 -v jenkins_blindado_home:/var/jenkins_home -v /var/run/docker.sock:/var/run/docker.sock jenkins-blindado
 ```
-Siga os passos 4–6 do `INSTALACAO_JENKINS.md` do professor (desbloquear, plugins, usuário).
-
-> `-u root` e o socket do Docker são uma simplificação de laboratório; em produção, use agentes dedicados.
-
-## 4. Cluster Kubernetes local (kind) + Kyverno
-
-```bash
-kind create cluster --name blindado
-helm repo add kyverno https://kyverno.github.io/kyverno/
-helm install kyverno kyverno/kyverno -n kyverno --create-namespace
-kind get kubeconfig --internal --name blindado > kubeconfig-kind.yaml
-```
-
-## 5. Chaves de assinatura (cosign)
-
-```bash
-cosign generate-key-pair        # gera cosign.key (secreta) e cosign.pub
-```
-Cole o conteúdo de `cosign.pub` em `k8s/kyverno-somente-imagens-assinadas.yaml` e aplique:
-```bash
-kubectl apply -f k8s/kyverno-somente-imagens-assinadas.yaml
-```
-📸 PRINT 4: `kubectl get clusterpolicy` mostrando a política `READY`.
-
-## 6. Credenciais no Jenkins (Manage Jenkins → Credentials)
-
-| ID | Tipo | Conteúdo |
-|---|---|---|
-| `github-token` | Username with password | usuário GitHub + token (repo, admin:repo_hook) |
-| `ghcr-credentials` | Username with password | usuário GitHub + token com `write:packages` |
-| `cosign-key` | Secret file | arquivo `cosign.key` |
-| `cosign-password` | Secret text | senha da chave cosign |
-| `kubeconfig-kind` | Secret file | arquivo `kubeconfig-kind.yaml` |
-
-📸 PRINT 5: tela de credenciais (os valores ficam ocultos).
-
-## 7. Criar o job Multibranch + webhook
-
-1. **New Item → Multibranch Pipeline** → nome `pipeline-blindado`.
-2. Branch Source: **GitHub**, credencial `github-token`, URL do repositório.
-3. Script Path: `Jenkinsfile` → Save. O Jenkins cria um job por branch.
-4. No GitHub: **Settings → Webhooks** → `http://SEU-IP-OU-TUNEL:8080/github-webhook/`
-   (para o GitHub alcançar sua máquina, use `ngrok http 8080` ou Cloudflare Tunnel).
-
-📸 PRINT 6: jobs criados por branch. 📸 PRINT 7: webhook com ✔ verde.
-
-## 8. Executar o fluxo de promoção
-
-```bash
-git checkout dev && git commit --allow-empty -m "ci: dispara pipeline" && git push origin dev
-```
-📸 PRINT 8: **Stage View** da branch `dev`, todos os estágios verdes.
-📸 PRINT 9: console mostrando o digest `sha256:...` e o `cosign sign`.
-📸 PRINT 10: pacote no GitHub Packages (GHCR).
-📸 PRINT 11: `kubectl get pods -n tarefas-dev`.
-
-Promova: `dev → homolog → pre-prod → main` (merge + push).
-📸 PRINT 12: tela de **aprovação manual** na branch `main`.
-📸 PRINT 13: `helm history tarefas-api -n tarefas-prod`.
-
-## 9. Os ataques (roteiro da apresentação)
-
-```bash
-bash ataques/01-segredo-vazado.sh          # bloqueado pelo pre-commit
-bash ataques/02-typosquatting.sh           # bloqueado pelo portão de dependências
-bash ataques/02b-dependencia-vulneravel.sh # bloqueado pelo npm audit
-bash ataques/04-codigo-inseguro.sh         # bloqueado pelo Semgrep
-bash ataques/03-imagem-nao-assinada.sh     # bloqueado pelo Kyverno (precisa do cluster)
-```
-📸 PRINT 14: Jenkins com build **vermelho** no estágio 2, após dar push do typosquatting numa branch `ataque/typosquatting`.
-📸 PRINT 15: erro do Kyverno recusando a imagem não assinada.
+Credenciais esperadas: `github-token`, `ghcr-credentials`, `cosign-key`, `cosign-password`, `kubeconfig-kind`.
+Crie um job **Multibranch Pipeline** apontando para o repositório.
